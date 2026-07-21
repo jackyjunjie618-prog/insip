@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>📖 Kamus Bergambar Jawi</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #FFFDE7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 10px;
+    }
+    .app {
+      width: 100%;
+      max-width: 600px;
+      background: white;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      max-height: 96vh;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1B5E20, #4CAF50);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      position: relative;
+      z-index: 10;
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .header h1 { font-size: 1rem; font-weight: 800; }
+    .menu-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      right: 10px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      z-index: 50;
+      display: none;
+      min-width: 180px;
+      overflow: hidden;
+    }
+    .dropdown-menu.show { display: block; }
+    .dropdown-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: #333;
+      border: none;
+      width: 100%;
+      background: none;
+      font-family: inherit;
+    }
+    .dropdown-item:hover { background: #F5F5F5; }
+    .admin-badge {
+      background: #FF8F00;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      margin-left: 6px;
+      display: none;
+    }
+    .admin-badge.show { display: inline-block; }
+
+    .password-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    .password-overlay.show { display: flex; }
+    .password-box {
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      width: 300px;
+      text-align: center;
+    }
+    .password-box input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 14px;
+      border: 2px solid #E0E0E0;
+      font-size: 0.9rem;
+      margin: 10px 0;
+      text-align: center;
+    }
+    .btn { padding: 10px 18px; border-radius: 14px; border: none; font-weight: 700; cursor: pointer; margin: 4px; }
+    .btn-unlock { background: #FF8F00; color: white; }
+    .btn-cancel { background: #EF5350; color: white; }
+
+    .page-nav {
+      display: flex;
+      gap: 5px;
+      padding: 10px;
+      background: #F5F5F5;
+      overflow-x: auto;
+    }
+    .page-btn {
+      padding: 6px 14px;
+      border-radius: 16px;
+      border: 2px solid #E0E0E0;
+      background: white;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .page-btn.active { background: #4CAF50; color: white; border-color: #4CAF50; }
+
+    .image-area {
+      position: relative;
+      margin: 10px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #E0E0E0;
+      flex: 1;
+    }
+    .image-area img { width: 100%; display: block; }
+
+    .hotspot {
+      position: absolute;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,215,0,0.8);
+      background: rgba(255,215,0,0.2);
+      cursor: pointer;
+      animation: gentlePulse 2s infinite;
+      transform: translate(-50%, -50%);
+    }
+    @keyframes gentlePulse {
+      0%,100% { box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+      50% { box-shadow: 0 0 20px rgba(255,215,0,0.6); }
+    }
+
+    .popup {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+    }
+    .popup.show { display: flex; }
+    .popup-card {
+      background: white;
+      border-radius: 24px;
+      padding: 24px;
+      text-align: center;
+      width: 320px;
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.7); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .popup-cn { font-size: 1.4rem; font-weight: 700; color: #1A237E; }
+    .popup-bm { font-size: 1.1rem; color: #00695C; margin: 4px 0; }
+    .popup-jawi {
+      font-family:'Traditional Arabic',serif;
+      font-size:1.8rem;
+      color:#E65100;
+      direction:rtl;
+      cursor: pointer;
+      background: #FFF8E1;
+      padding: 8px;
+      border-radius: 12px;
+      border: 2px solid #FFCA28;
+      margin: 6px 0;
+    }
+    .popup-jawi:hover { background: #FFECB3; }
+    .popup-close {
+      margin-top: 14px;
+      padding: 10px 24px;
+      border-radius: 20px;
+      background: #EF5350;
+      color: white;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .speak-btn {
+      padding: 10px 20px;
+      border-radius: 16px;
+      background: #4285F4;
+      color: white;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .speak-btn:active { background: #3367D6; }
+
+    .huruf-popup {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+    }
+    .huruf-popup.show { display: flex; }
+    .huruf-card {
+      background: #FFFDE7;
+      border-radius: 28px;
+      padding: 24px;
+      width: 400px;
+      max-width: 90vw;
+      text-align: center;
+      border: 5px solid #FFCA28;
+      box-shadow: 0 20px 0 #F57F17;
+    }
+    .huruf-title { font-size: 1.1rem; font-weight: 700; color: #E65100; margin-bottom: 10px; }
+    .huruf-word { font-family: 'Traditional Arabic', serif; font-size: 3rem; color: #4E342E; margin-bottom: 15px; }
+    .huruf-grid { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 15px 0; }
+    .huruf-box {
+      background: #FFECB3; padding: 12px 16px; border-radius: 16px;
+      text-align: center; min-width: 70px; border: 3px solid #FF8F00;
+    }
+    .huruf-box .jawi-char { font-family: 'Traditional Arabic', serif; font-size: 2.5rem; color: #3E2723; }
+    .huruf-box .jawi-name { font-size: 0.7rem; color: #5D4037; }
+    .huruf-close {
+      margin-top: 15px; padding: 10px 24px; border-radius: 20px;
+      background: #90A4AE; color: white; border: none; font-weight: 700;
+      cursor: pointer; box-shadow: 0 4px 0 #546E7A;
+    }
+
+    .admin-section {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .admin-section.show { display: flex; }
+    .admin-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .mini-btn { padding: 6px 12px; border-radius: 14px; border: none; font-size: 0.7rem; font-weight: 700; cursor: pointer; }
+    .mini-btn.green { background: #4CAF50; color: white; }
+    .mini-btn.blue { background: #4285F4; color: white; }
+    .mini-btn.red { background: #EF5350; color: white; }
+    .url-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .url-row input { flex: 1; padding: 8px 12px; border-radius: 14px; border: 2px solid #E0E0E0; font-size: 0.8rem; }
+    .admin-image-area {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #E0E0E0;
+      cursor: crosshair;
+      margin-bottom: 8px;
+    }
+    .admin-image-area img { width: 100%; display: block; pointer-events: none; }
+    .hotspot-dot {
+      position: absolute;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: rgba(255,87,34,0.7);
+      border: 3px solid white;
+      transform: translate(-50%, -50%);
+      cursor: grab;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 0.65rem;
+    }
+    .word-form {
+      background: #F5F5F5;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: none;
+      border: 2px solid #4CAF50;
+    }
+    .word-form.show { display: block; }
+    .word-form input {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 2px solid #E0E0E0;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+    .jawi-input { font-family: 'Traditional Arabic', serif; font-size: 1.2rem; direction: rtl; }
+    .hs-list { margin-top: 8px; }
+    .hs-item {
+      background: #FAFAFA;
+      padding: 8px 10px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+    }
+    .hs-item span { flex: 1; }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 24px;
+      font-size: 0.8rem;
+      z-index: 400;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <span style="font-size:1.3rem;">📖</span>
+      <h1>Kamus Bergambar Jawi <span class="admin-badge" id="adminBadge">ADMIN</span></h1>
+    </div>
+    <button class="menu-btn" id="menuBtn"><i class="fas fa-bars"></i></button>
+    <div class="dropdown-menu" id="dropdownMenu">
+      <button class="dropdown-item" id="menuAdmin"><i class="fas fa-lock"></i> Tukar ke Admin</button>
+      <button class="dropdown-item" id="menuStudent" style="display:none;"><i class="fas fa-user"></i> Tukar ke Pelajar</button>
+      <button class="dropdown-item" id="menuRefresh"><i class="fas fa-sync-alt"></i> Segar</button>
+    </div>
+  </div>
+
+  <div class="password-overlay" id="passwordOverlay">
+    <div class="password-box">
+      <h3>🔐 Kata Laluan Admin</h3>
+      <input type="password" id="passwordInput" placeholder="Masukkan kata laluan">
+      <br>
+      <button class="btn btn-unlock" id="btnUnlock">Buka</button>
+      <button class="btn btn-cancel" id="btnCancel">Batal</button>
+    </div>
+  </div>
+
+  <div id="studentView" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <div class="page-nav" id="studentPageNav"></div>
+    <div class="image-area" id="studentImageArea">
+      <img id="studentImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect fill='%23E0E0E0' width='600' height='400'/%3E%3Ctext x='300' y='200' text-anchor='middle' fill='%23999'%3EPilih halaman%3C/text%3E%3C/svg%3E" alt="Gambar">
+    </div>
+  </div>
+
+  <div class="admin-section" id="adminView">
+    <div class="admin-bar">
+      <button class="mini-btn green" id="btnNewPage"><i class="fas fa-plus"></i> Halaman Baru</button>
+      <button class="mini-btn red" id="btnDelPage" style="display:none;"><i class="fas fa-trash"></i> Padam</button>
+    </div>
+    <div class="page-nav" id="adminPageNav"></div>
+    <div class="url-row">
+      <input type="text" id="imageUrl" placeholder="📷 URL Gambar (PostImages Direct Link)">
+      <button class="mini-btn blue" id="btnSaveImg"><i class="fas fa-save"></i></button>
+    </div>
+    <p style="font-size:0.6rem;color:#888;margin-bottom:4px;">📌 Upload ke <a href="https://postimages.org/" target="_blank">postimages.org</a> → Direct Link</p>
+    <div class="admin-image-area" id="adminImageArea">
+      <img id="adminImage" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400'%3E%3Crect fill='%23E0E0E0' width='600' height='400'/%3E%3Ctext x='300' y='200' text-anchor='middle' fill='%23999'%3E%3C/text%3E%3C/svg%3E" alt="Gambar">
+    </div>
+    <div class="word-form" id="wordForm">
+      <input type="text" id="hsName" placeholder="Nama">
+      <input type="text" id="hsCN" placeholder="中文">
+      <input type="text" id="hsBM" placeholder="Bahasa Melayu">
+      <input type="text" id="hsJawi" class="jawi-input" placeholder="Jawi">
+      <div style="display:flex;gap:6px;">
+        <button class="mini-btn green" id="btnSaveHs"><i class="fas fa-check"></i> Simpan</button>
+        <button class="mini-btn red" id="btnCancelHs">Batal</button>
+      </div>
+      <input type="hidden" id="editHsId">
+    </div>
+    <div class="hs-list" id="adminHsList"></div>
+  </div>
+</div>
+
+<div class="popup" id="wordPopup">
+  <div class="popup-card">
+    <div class="popup-cn" id="popupCN">-</div>
+    <div class="popup-bm" id="popupBM">-</div>
+    <div class="popup-jawi" id="popupJawi">-</div>
+    <button class="speak-btn" id="speakBtn"><i class="fas fa-volume-up"></i> Dengar Sebutan</button>
+    <br>
+    <button class="popup-close" id="popupClose">Tutup</button>
+  </div>
+</div>
+
+<div class="huruf-popup" id="hurufPopup">
+  <div class="huruf-card">
+    <div class="huruf-title"><i class="fas fa-puzzle-piece"></i> Susunan Huruf Jawi</div>
+    <div class="huruf-word" id="hurufWord">-</div>
+    <div class="huruf-grid" id="hurufGrid"></div>
+    <button class="huruf-close" id="hurufClose"><i class="fas fa-check"></i> Faham!</button>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyBVsJT12p1S3DAESFrjua8UYmWh93XnBr8",
+    authDomain: "kamus-bergambar-jawi.firebaseapp.com",
+    projectId: "kamus-bergambar-jawi",
+    storageBucket: "kamus-bergambar-jawi.firebasestorage.app",
+    messagingSenderId: "124017420272",
+    appId: "1:124017420272:web:fd7d1a3a7384b16cd39f35"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  const ADMIN_PASSWORD = 'jawi2024';
+  let isAdmin = false;
+  let currentWord = null;
+  let adminPageId = null;
+  let tempX = 0, tempY = 0;
+  let allPages = [];
+
+  const HURUF_JAWI = [
+    { char: 'ا', name: 'alif' },{ char: 'ب', name: 'ba' },{ char: 'ت', name: 'ta' },
+    { char: 'ث', name: 'tha' },{ char: 'ج', name: 'jim' },{ char: 'ح', name: 'ha' },
+    { char: 'خ', name: 'kha' },{ char: 'د', name: 'dal' },{ char: 'ذ', name: 'dzal' },
+    { char: 'ر', name: 'ra' },{ char: 'ز', name: 'zai' },{ char: 'س', name: 'sin' },
+    { char: 'ش', name: 'syin' },{ char: 'ص', name: 'sad' },{ char: 'ض', name: 'dad' },
+    { char: 'ط', name: 'ta' },{ char: 'ظ', name: 'za' },{ char: 'ع', name: 'ain' },
+    { char: 'غ', name: 'ghain' },{ char: 'ڠ', name: 'nga' },{ char: 'ف', name: 'fa' },
+    { char: 'ڤ', name: 'pa' },{ char: 'ق', name: 'qaf' },{ char: 'ك', name: 'kaf' },
+    { char: 'ڬ', name: 'ga' },{ char: 'ل', name: 'lam' },{ char: 'م', name: 'mim' },
+    { char: 'ن', name: 'nun' },{ char: 'و', name: 'wau' },{ char: 'ۏ', name: 'va' },
+    { char: 'ه', name: 'ha' },{ char: 'ة', name: 'ta marbutah' },{ char: 'ي', name: 'ya' },
+    { char: 'ڽ', name: 'nya' },{ char: 'چ', name: 'ca' },{ char: 'ء', name: 'hamzah' }
+  ];
+
+  function toast(msg) {
+    const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+  }
+
+  // ============ 🔊 GOOGLE TRANSLATE TTS ============
+  function speakMalay(word) {
+    if (!word) return;
+    const audio = new Audio();
+    audio.src = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=ms&client=gtx`;
+    audio.play();
+  }
+
+  // ============ MENU ============
+  document.getElementById('menuBtn').addEventListener('click', () => document.getElementById('dropdownMenu').classList.toggle('show'));
+  document.addEventListener('click', (e) => { if (!e.target.closest('.header')) document.getElementById('dropdownMenu').classList.remove('show'); });
+  document.getElementById('menuAdmin').addEventListener('click', () => { document.getElementById('dropdownMenu').classList.remove('show'); document.getElementById('passwordOverlay').classList.add('show'); document.getElementById('passwordInput').focus(); });
+  document.getElementById('menuStudent').addEventListener('click', () => switchMode(false));
+  document.getElementById('menuRefresh').addEventListener('click', () => location.reload());
+  document.getElementById('btnCancel').addEventListener('click', () => document.getElementById('passwordOverlay').classList.remove('show'));
+  document.getElementById('btnUnlock').addEventListener('click', () => {
+    if (document.getElementById('passwordInput').value === ADMIN_PASSWORD) {
+      document.getElementById('passwordOverlay').classList.remove('show');
+      switchMode(true);
+      toast('✅ Admin dibuka');
+    } else { toast('❌ Salah'); }
+  });
+
+  function switchMode(admin) {
+    isAdmin = admin;
+    document.getElementById('studentView').style.display = admin ? 'none' : 'flex';
+    document.getElementById('adminView').classList.toggle('show', admin);
+    document.getElementById('adminBadge').classList.toggle('show', admin);
+    document.getElementById('menuAdmin').style.display = admin ? 'none' : 'flex';
+    document.getElementById('menuStudent').style.display = admin ? 'flex' : 'none';
+    if (admin) loadAdminData(); else loadStudentData();
+  }
+
+  function loadAll(cb) {
+    db.collection('pages').onSnapshot(s => {
+      allPages = [];
+      s.forEach(d => allPages.push({ id: d.id, ...d.data() }));
+      if (cb) cb();
+    });
+  }
+
+  // ============ STUDENT ============
+  function loadStudentData() {
+    loadAll(() => {
+      const nav = document.getElementById('studentPageNav');
+      nav.innerHTML = '';
+      allPages.forEach(p => {
+        const c = document.createElement('span');
+        c.className = 'page-btn';
+        c.textContent = p.name || 'Hal';
+        c.addEventListener('click', () => {
+          nav.querySelectorAll('.page-btn').forEach(x => x.classList.remove('active'));
+          c.classList.add('active');
+          loadStudentPage(p);
+        });
+        nav.appendChild(c);
+      });
+      if (allPages.length > 0) nav.firstChild.click();
+    });
+  }
+
+  function loadStudentPage(p) {
+    document.getElementById('studentImage').src = p.imageUrl || '';
+    const area = document.getElementById('studentImageArea');
+    area.querySelectorAll('.hotspot').forEach(d => d.remove());
+    db.collection('pages').doc(p.id).collection('hotspots').onSnapshot(s => {
+      area.querySelectorAll('.hotspot').forEach(d => d.remove());
+      s.forEach(d => {
+        const hs = d.data();
+        const dot = document.createElement('div');
+        dot.className = 'hotspot';
+        dot.style.top = hs.top + '%';
+        dot.style.left = hs.left + '%';
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          currentWord = hs;
+          document.getElementById('popupCN').textContent = hs.cn || hs.name;
+          document.getElementById('popupBM').textContent = hs.bm || hs.name;
+          document.getElementById('popupJawi').textContent = hs.jawi || '';
+          document.getElementById('wordPopup').classList.add('show');
+        });
+        area.appendChild(dot);
+      });
+    });
+  }
+
+  // ============ ADMIN ============
+  function loadAdminData() {
+    loadAll(() => {
+      const nav = document.getElementById('adminPageNav');
+      nav.innerHTML = '';
+      allPages.forEach(p => {
+        const c = document.createElement('span');
+        c.className = 'page-btn';
+        c.textContent = p.name || 'Hal';
+        c.addEventListener('click', () => {
+          nav.querySelectorAll('.page-btn').forEach(x => x.classList.remove('active'));
+          c.classList.add('active');
+          loadAdminPage(p);
+        });
+        nav.appendChild(c);
+      });
+      if (allPages.length > 0) { nav.firstChild.click(); document.getElementById('btnDelPage').style.display = 'inline-block'; }
+    });
+  }
+
+  function loadAdminPage(p) {
+    adminPageId = p.id;
+    document.getElementById('adminImage').src = p.imageUrl || '';
+    document.getElementById('imageUrl').value = p.imageUrl || '';
+    const area = document.getElementById('adminImageArea');
+    area.querySelectorAll('.hotspot-dot').forEach(d => d.remove());
+    db.collection('pages').doc(p.id).collection('hotspots').onSnapshot(s => {
+      area.querySelectorAll('.hotspot-dot').forEach(d => d.remove());
+      const list = document.getElementById('adminHsList');
+      list.innerHTML = '';
+      s.forEach(d => {
+        const hs = d.data();
+        const dot = document.createElement('div');
+        dot.className = 'hotspot-dot';
+        dot.style.top = hs.top + '%';
+        dot.style.left = hs.left + '%';
+        dot.textContent = '📍';
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('hsName').value = hs.name || '';
+          document.getElementById('hsCN').value = hs.cn || '';
+          document.getElementById('hsBM').value = hs.bm || '';
+          document.getElementById('hsJawi').value = hs.jawi || '';
+          document.getElementById('editHsId').value = d.id;
+          document.getElementById('wordForm').classList.add('show');
+        });
+        area.appendChild(dot);
+        const item = document.createElement('div');
+        item.className = 'hs-item';
+        item.innerHTML = `<span>📍 ${hs.bm||hs.name} (${hs.cn})</span><button class="mini-btn red del-hs" data-id="${d.id}" style="font-size:0.6rem;padding:3px 8px;">✕</button>`;
+        list.appendChild(item);
+      });
+      document.querySelectorAll('.del-hs').forEach(b => {
+        b.addEventListener('click', async () => {
+          if (confirm('Padam?')) { await db.collection('pages').doc(adminPageId).collection('hotspots').doc(b.dataset.id).delete(); toast('✅'); }
+        });
+      });
+    });
+  }
+
+  document.getElementById('adminImageArea').addEventListener('click', (e) => {
+    if (!adminPageId || e.target.classList.contains('hotspot-dot')) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    tempX = Math.round(((e.clientX - r.left) / r.width) * 100);
+    tempY = Math.round(((e.clientY - r.top) / r.height) * 100);
+    ['hsName','hsCN','hsBM','hsJawi'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('editHsId').value = '';
+    document.getElementById('wordForm').classList.add('show');
+  });
+
+  document.getElementById('btnSaveHs').addEventListener('click', async () => {
+    if (!adminPageId) return;
+    const data = {
+      name: document.getElementById('hsName').value.trim(),
+      cn: document.getElementById('hsCN').value.trim(),
+      bm: document.getElementById('hsBM').value.trim(),
+      jawi: document.getElementById('hsJawi').value.trim(),
+      top: tempY, left: tempX
+    };
+    const eid = document.getElementById('editHsId').value;
+    if (eid) await db.collection('pages').doc(adminPageId).collection('hotspots').doc(eid).update(data);
+    else await db.collection('pages').doc(adminPageId).collection('hotspots').add(data);
+    document.getElementById('wordForm').classList.remove('show');
+    toast('✅ Disimpan');
+  });
+
+  document.getElementById('btnCancelHs').addEventListener('click', () => document.getElementById('wordForm').classList.remove('show'));
+  document.getElementById('btnSaveImg').addEventListener('click', async () => {
+    if (!adminPageId) return;
+    const url = document.getElementById('imageUrl').value.trim();
+    if (!url) return;
+    await db.collection('pages').doc(adminPageId).update({ imageUrl: url });
+    document.getElementById('adminImage').src = url;
+    toast('✅ Gambar disimpan');
+  });
+  document.getElementById('btnNewPage').addEventListener('click', async () => {
+    const n = prompt('Nama halaman:');
+    if (!n) return;
+    await db.collection('pages').add({ name: n, imageUrl: '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    toast('✅ Halaman baru');
+  });
+  document.getElementById('btnDelPage').addEventListener('click', async () => {
+    if (!adminPageId || !confirm('Padam?')) return;
+    const s = await db.collection('pages').doc(adminPageId).collection('hotspots').get();
+    s.forEach(d => d.ref.delete());
+    await db.collection('pages').doc(adminPageId).delete();
+    adminPageId = null;
+    toast('✅ Dipadam');
+  });
+
+  // ============ POPUP ============
+  document.getElementById('popupClose').addEventListener('click', () => document.getElementById('wordPopup').classList.remove('show'));
+  document.getElementById('wordPopup').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('show'); });
+  
+  document.getElementById('speakBtn').addEventListener('click', () => {
+    if (!currentWord) return;
+    speakMalay(currentWord.bm || currentWord.name);
+  });
+
+  document.getElementById('popupJawi').addEventListener('click', () => {
+    if (!currentWord?.jawi) return;
+    document.getElementById('hurufWord').textContent = currentWord.jawi;
+    const g = document.getElementById('hurufGrid');
+    g.innerHTML = '';
+    [...currentWord.jawi].forEach(ch => {
+      const f = HURUF_JAWI.find(h => h.char === ch);
+      const b = document.createElement('div');
+      b.className = 'huruf-box';
+      b.innerHTML = `<div class="jawi-char">${ch}</div><div class="jawi-name">${f?f.name:'?'}</div>`;
+      g.appendChild(b);
+    });
+    document.getElementById('hurufPopup').classList.add('show');
+  });
+  document.getElementById('hurufClose').addEventListener('click', () => document.getElementById('hurufPopup').classList.remove('show'));
+  document.getElementById('hurufPopup').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('show'); });
+
+  // ============ INIT ============
+  loadStudentData();
+</script>
+</body>
+</html>
